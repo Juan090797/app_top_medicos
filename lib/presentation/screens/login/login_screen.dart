@@ -1,14 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:app_top_medicos/presentation/providers/auth/auth_provider.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   static const name = 'login_screen';
-
   const LoginScreen({super.key});
+  @override
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
+
+  late final ProviderSubscription _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _authSub = ref.listenManual(authProvider, (prev, next) {
+      if (!mounted) return;
+      if ((prev?.errorMessage != next.errorMessage) &&
+          next.errorMessage != null) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(next.errorMessage!)));
+      }
+
+      final wasAuth = prev?.isAuthenticated ?? false;
+      final isAuth = next.isAuthenticated;
+
+      if (!wasAuth && isAuth) {
+        context.go('/');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub.close();
+    emailCtrl.dispose();
+    passCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final auth = ref.watch(authProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -21,18 +65,15 @@ class LoginScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 10),
-
-                // Logo
                 const Image(
-                  image: NetworkImage('https://topmedicosperu.com/static/logo.png'),
+                  image: NetworkImage(
+                    'https://topmedicosperu.com/static/logo.png',
+                  ),
                   width: 90,
                   height: 90,
                   fit: BoxFit.contain,
                 ),
-
                 const SizedBox(height: 14),
-
-                // Título
                 const Text(
                   'Iniciar sesion',
                   textAlign: TextAlign.center,
@@ -42,10 +83,7 @@ class LoginScreen extends StatelessWidget {
                     color: Colors.black,
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
-                // Subtítulo
                 const Text(
                   'Gestiona tus citas médicas con facilidad.',
                   textAlign: TextAlign.center,
@@ -55,31 +93,68 @@ class LoginScreen extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-
                 const SizedBox(height: 28),
 
-                // Email
-                TextField(
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDecoration('Correo electronico'),
-                ),
-
-                const SizedBox(height: 14),
-
-                // Password
-                TextField(
-                  obscureText: true,
-                  decoration: _inputDecoration('Contraseña'),
+                Form(
+                  key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: _inputDecoration('Correo electronico'),
+                        validator: (v) {
+                          final value = v?.trim() ?? '';
+                          if (value.isEmpty) return 'Ingrese su correo';
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return 'Correo inválido';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: passCtrl,
+                        obscureText: _obscurePassword,
+                        decoration: _inputDecoration('Contraseña').copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: const Color(0xFF355A6B),
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (v) {
+                          final value = v?.trim() ?? '';
+                          if (value.isEmpty) return 'Ingrese su contraseña';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 22),
 
-                // Botón Ingresar
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: () => context.go('/'),
+                    onPressed:
+                        auth.isLoading
+                            ? null
+                            : () {
+                              FocusScope.of(context).unfocus();
+                              if (!_formKey.currentState!.validate()) return;
+                              ref
+                                  .read(authProvider.notifier)
+                                  .login(
+                                    email: emailCtrl.text.trim(),
+                                    password: passCtrl.text.trim(),
+                                  );
+                            },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0E2E3F),
                       foregroundColor: Colors.white,
@@ -92,17 +167,25 @@ class LoginScreen extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    child: const Text('Ingresar'),
+                    child:
+                        auth.isLoading
+                            ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                            : const Text('Ingresar'),
                   ),
                 ),
 
                 const SizedBox(height: 18),
-
-                // Olvidaste tu contraseña
                 GestureDetector(
-                  onTap: () {
-                    // TODO: navegar a recuperar contraseña cuando la crees
-                  },
+                  onTap: () {},
                   child: const Text(
                     '¿Olvidaste tu contraseña?',
                     style: TextStyle(
@@ -112,10 +195,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
-                // No tienes cuenta? Registrate
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -128,9 +208,7 @@ class LoginScreen extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () {
-                        // TODO: navegar a registro cuando la crees
-                      },
+                      onTap: () {},
                       child: const Text(
                         'Registrate',
                         style: TextStyle(
@@ -142,7 +220,6 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 18),
               ],
             ),

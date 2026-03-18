@@ -1,3 +1,5 @@
+import 'package:app_top_medicos/presentation/screens/doctors/doctor_detail_screen.dart';
+import 'package:app_top_medicos/presentation/screens/doctors/doctors_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:app_top_medicos/presentation/screens/screens.dart';
 
@@ -81,6 +83,35 @@ final appRouter = GoRouter(
       path: '/theme-changer',
       name: ThemeChangerScreen.name,
       builder: (context, state) => const ThemeChangerScreen(),
+    ),
+    GoRoute(
+      path: '/favorites',
+      name: FavoritesScreen.name,
+      builder: (context, state) => const FavoritesScreen(),
+    ),
+    GoRoute(
+      path: '/appointments',
+      name: AppointmentsScreen.name,
+      builder: (context, state) => const AppointmentsScreen(),
+    ),
+    GoRoute(
+      path: '/profile',
+      name: ProfileScreen.name,
+      builder: (context, state) => const ProfileScreen(),
+    ),
+
+
+    GoRoute(
+      path: '/doctors',
+      name: DoctorsScreen.name,
+      builder: (context, state) => const DoctorsScreen(),
+    ),
+    GoRoute(
+      path: '/doctor-detail/:fullName',
+      builder: (context, state) {
+        final fullName = state.pathParameters['fullName'] ?? '';
+        return DoctorDetailScreen(fullName: fullName);
+      },
     ),
   ],
 );

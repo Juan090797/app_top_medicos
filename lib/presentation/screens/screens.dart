@@ -15,3 +15,6 @@ export 'package:app_top_medicos/presentation/screens/theme_changer/theme_changer
 export 'package:app_top_medicos/presentation/screens/ui_controls/ui_controls_screen.dart';
 export 'package:app_top_medicos/presentation/screens/splash/splash_screen.dart';
 export 'package:app_top_medicos/presentation/screens/login/login_screen.dart';
+export 'package:app_top_medicos/presentation/screens/favorites/favorites_screen.dart';
+export 'package:app_top_medicos/presentation/screens/appointments/appointments_screen.dart';
+export 'package:app_top_medicos/presentation/screens/profile/profile_screen.dart';
