@@ -5,8 +5,9 @@ import 'package:app_top_medicos/presentation/providers/profile/patient_profile_s
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final patientProfileProvider = StateNotifierProvider.autoDispose<
-    PatientProfileNotifier,
-    PatientProfileState>((ref) {
+  PatientProfileNotifier,
+  PatientProfileState
+>((ref) {
   final authState = ref.watch(authProvider);
   final repository = ref.watch(patientProfileRepositoryProvider);
 
@@ -21,5 +22,6 @@ final patientProfileProvider = StateNotifierProvider.autoDispose<
     repository: repository,
     email: email,
     token: token,
+    onSessionExpired: () => ref.read(authProvider.notifier).expireSession(),
   );
 });

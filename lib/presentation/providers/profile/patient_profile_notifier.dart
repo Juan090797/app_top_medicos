@@ -1,6 +1,7 @@
 import 'package:app_top_medicos/domain/repositories/patient_profile_repository.dart';
 import 'package:app_top_medicos/domain/entities/gender_option.dart';
 import 'package:app_top_medicos/domain/entities/patient_profile.dart';
+import 'package:app_top_medicos/infrastructure/errors/auth_errors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'patient_profile_state.dart';
@@ -9,20 +10,23 @@ class PatientProfileNotifier extends StateNotifier<PatientProfileState> {
   final PatientProfileRepository repository;
   final String email;
   final String token;
+  final Future<void> Function()? onSessionExpired;
 
   PatientProfileNotifier({
     required this.repository,
     required this.email,
     required this.token,
+    this.onSessionExpired,
   }) : super(const PatientProfileState()) {
     loadProfileData();
   }
 
   PatientProfileNotifier.empty()
-      : repository = _NullRepository(),
-        email = '',
-        token = '',
-        super(const PatientProfileState(isLoading: false));
+    : repository = _NullRepository(),
+      email = '',
+      token = '',
+      onSessionExpired = null,
+      super(const PatientProfileState(isLoading: false));
 
   Future<void> loadProfileData() async {
     state = state.copyWith(
@@ -46,10 +50,9 @@ class PatientProfileNotifier extends StateNotifier<PatientProfileState> {
         genders: genders,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      await _expireSessionIfNeeded(e);
+      if (!mounted) return;
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 
@@ -80,10 +83,9 @@ class PatientProfileNotifier extends StateNotifier<PatientProfileState> {
         successMessage: 'Perfil actualizado correctamente',
       );
     } catch (e) {
-      state = state.copyWith(
-        isSaving: false,
-        errorMessage: e.toString(),
-      );
+      await _expireSessionIfNeeded(e);
+      if (!mounted) return;
+      state = state.copyWith(isSaving: false, errorMessage: e.toString());
     }
   }
 
@@ -120,23 +122,30 @@ class PatientProfileNotifier extends StateNotifier<PatientProfileState> {
         successMessage: 'Contraseña actualizada correctamente',
       );
     } catch (e) {
-      state = state.copyWith(
-        isSaving: false,
-        errorMessage: e.toString(),
-      );
+      await _expireSessionIfNeeded(e);
+      if (!mounted) return;
+      state = state.copyWith(isSaving: false, errorMessage: e.toString());
     }
   }
 
   void clearMessages() {
     state = state.copyWith(clearError: true, clearSuccess: true);
   }
+
+  Future<void> _expireSessionIfNeeded(Object error) async {
+    if (error is SessionExpiredException) {
+      await onSessionExpired?.call();
+    }
+  }
 }
 
 /// Implementación nula para cuando no hay sesión activa.
 class _NullRepository implements PatientProfileRepository {
   @override
-  Future<PatientProfile> getByEmail({required String email, required String token}) =>
-      throw UnimplementedError();
+  Future<PatientProfile> getByEmail({
+    required String email,
+    required String token,
+  }) => throw UnimplementedError();
   @override
   Future<List<GenderOption>> getGenders({required String token}) =>
       throw UnimplementedError();
@@ -146,8 +155,7 @@ class _NullRepository implements PatientProfileRepository {
     required String phoneNumber,
     required String gender,
     required String token,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
   @override
   Future<void> changePassword({
     required String email,
@@ -155,6 +163,5 @@ class _NullRepository implements PatientProfileRepository {
     required String newPassword,
     required String repeatNewPassword,
     required String token,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 }

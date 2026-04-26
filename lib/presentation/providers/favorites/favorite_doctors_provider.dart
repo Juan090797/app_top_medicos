@@ -1,12 +1,15 @@
 import 'package:app_top_medicos/infrastructure/datasources/favorite_doctor_datasource_impl.dart';
 import 'package:app_top_medicos/infrastructure/repositories/favorite_doctor_repository_impl.dart';
 import 'package:app_top_medicos/presentation/providers/auth/auth_provider.dart';
+import 'package:app_top_medicos/presentation/providers/auth/jwt_token_service_provider.dart';
 import 'package:app_top_medicos/presentation/providers/favorites/favorite_doctors_notifier.dart';
 import 'package:app_top_medicos/presentation/providers/favorites/favorite_doctors_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final favoriteDoctorsProvider = StateNotifierProvider.autoDispose<
-    FavoriteDoctorsNotifier, FavoriteDoctorsState>((ref) {
+  FavoriteDoctorsNotifier,
+  FavoriteDoctorsState
+>((ref) {
   final authState = ref.watch(authProvider);
 
   final token = authState.token;
@@ -16,12 +19,15 @@ final favoriteDoctorsProvider = StateNotifierProvider.autoDispose<
     throw Exception('No hay sesión activa para cargar favoritos');
   }
 
-  final repository =
-      FavoriteDoctorRepositoryImpl(FavoriteDoctorDatasourceImpl());
+  final tokenService = ref.watch(jwtTokenServiceProvider);
+  final repository = FavoriteDoctorRepositoryImpl(
+    FavoriteDoctorDatasourceImpl(tokenService: tokenService),
+  );
 
   return FavoriteDoctorsNotifier(
     repository: repository,
     email: email,
     token: token,
+    onSessionExpired: () => ref.read(authProvider.notifier).expireSession(),
   );
 });

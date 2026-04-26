@@ -1,67 +1,38 @@
-import 'dart:convert';
-
+import 'package:app_top_medicos/infrastructure/auth/jwt_token_service.dart';
 import 'package:dio/dio.dart';
 import 'package:app_top_medicos/domain/datasources/auth_datasource.dart';
 import 'package:app_top_medicos/domain/entities/auth_session.dart';
 import 'package:app_top_medicos/domain/entities/authenticated_user.dart';
 import 'package:app_top_medicos/infrastructure/errors/auth_errors.dart';
+import 'package:app_top_medicos/infrastructure/http/api_error_handler.dart';
 
 class AuthDbDatasource extends AuthDatasource {
-  final dio = Dio(BaseOptions(
-    baseUrl: 'https://topmedicosperu.com/ms-medical-app/api',
-    headers: {'Content-Type': 'application/json'},
-  ));
+  final JwtTokenService tokenService;
 
-  Map<String, dynamic> _decodeTokenPayload(String token) {
-    final parts = token.split('.');
-    if (parts.length < 2) {
-      throw const AuthException('Respuesta inválida: token malformado');
-    }
+  AuthDbDatasource({JwtTokenService? tokenService})
+    : tokenService = tokenService ?? JwtTokenService();
 
-    try {
-      final normalizedPayload = base64Url.normalize(parts[1]);
-      final payloadBytes = base64Url.decode(normalizedPayload);
-      final payloadMap = jsonDecode(utf8.decode(payloadBytes));
-
-      if (payloadMap is! Map<String, dynamic>) {
-        throw const AuthException('Respuesta inválida: payload de token inválido');
-      }
-
-      return payloadMap;
-    } on FormatException {
-      throw const AuthException('Respuesta inválida: no se pudo leer el token');
-    }
-  }
-
-  bool _hasPatientAuthority(String token) {
-    final payloadMap = _decodeTokenPayload(token);
-    final authorities = payloadMap['authorities'];
-    if (authorities is! List) return false;
-
-    return authorities.any((authority) {
-      if (authority is Map<String, dynamic>) {
-        return authority['authority']?.toString() == 'PATIENT';
-      }
-
-      return false;
-    });
-  }
-
-  String _extractEmailFromToken(String token) {
-    final payloadMap = _decodeTokenPayload(token);
-    final email = payloadMap['email']?.toString() ?? payloadMap['sub']?.toString() ?? '';
-
-    if (email.isEmpty) {
-      throw const AuthException('Respuesta inválida: el token no contiene email');
-    }
-
-    return email;
-  }
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://topmedicosperu.com/ms-medical-app/api',
+      headers: {'Content-Type': 'application/json'},
+    ),
+  );
 
   bool _hasUsableImage(String imageUrl) {
     return imageUrl.isNotEmpty &&
         !imageUrl.endsWith('/null') &&
         !imageUrl.contains('/static/null');
+  }
+
+  Options _authorizedOptions(String token) {
+    if (tokenService.isExpired(token)) {
+      throw const SessionExpiredException(
+        ApiErrorHandler.sessionExpiredMessage,
+      );
+    }
+
+    return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
   @override
@@ -73,9 +44,7 @@ class AuthDbDatasource extends AuthDatasource {
       final resp = await dio.get(
         '/people/me',
         queryParameters: {'email': email.trim().toLowerCase()},
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+        options: _authorizedOptions(token),
       );
 
       final json = resp.data as Map<String, dynamic>;
@@ -88,8 +57,9 @@ class AuthDbDatasource extends AuthDatasource {
         isUpdateData: json['isUpdateData'] == true,
       );
     } on DioException catch (e) {
-      throw AuthException(
-        'No se pudo obtener la información del usuario: ${e.message ?? 'desconocido'}',
+      throw ApiErrorHandler.authExceptionFromDio(
+        e,
+        fallbackMessage: 'No se pudo obtener la información del usuario',
       );
     }
   }
@@ -102,10 +72,7 @@ class AuthDbDatasource extends AuthDatasource {
     try {
       final resp = await dio.post(
         '/auth/login',
-        data: {
-          'email': email,
-          'password': password,
-        },
+        data: {'email': email, 'password': password},
       );
 
       final json = resp.data as Map<String, dynamic>;
@@ -115,13 +82,17 @@ class AuthDbDatasource extends AuthDatasource {
         throw const AuthException('Respuesta inválida: token vacío');
       }
 
-      if (!_hasPatientAuthority(token)) {
+      if (tokenService.isExpired(token)) {
+        throw const SessionExpiredException(
+          ApiErrorHandler.sessionExpiredMessage,
+        );
+      }
+
+      if (!tokenService.hasAuthority(token, 'PATIENT')) {
         throw const AuthException('Debes ser paciente para ingresar');
       }
 
-      dio.options.headers['Authorization'] = 'Bearer $token';
-
-      final tokenEmail = _extractEmailFromToken(token);
+      final tokenEmail = tokenService.extractEmail(token);
 
       return AuthSession(token: token, email: tokenEmail);
     } on DioException catch (e) {
@@ -130,9 +101,10 @@ class AuthDbDatasource extends AuthDatasource {
       final data = e.response?.data;
 
       if (status == 401) {
-        final msg = (data is Map<String, dynamic>)
-            ? (data['message']?.toString() ?? 'Credenciales incorrectas')
-            : 'Credenciales incorrectas';
+        final msg =
+            (data is Map<String, dynamic>)
+                ? (data['message']?.toString() ?? 'Credenciales incorrectas')
+                : 'Credenciales incorrectas';
         throw AuthException(msg);
       }
 

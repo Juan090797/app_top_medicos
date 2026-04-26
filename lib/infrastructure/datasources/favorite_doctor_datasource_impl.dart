@@ -1,9 +1,16 @@
+import 'package:app_top_medicos/infrastructure/auth/jwt_token_service.dart';
 import 'package:app_top_medicos/domain/datasources/favorite_doctor_datasource.dart';
 import 'package:app_top_medicos/domain/entities/favorite_doctor.dart';
 import 'package:app_top_medicos/infrastructure/errors/auth_errors.dart';
+import 'package:app_top_medicos/infrastructure/http/api_error_handler.dart';
 import 'package:dio/dio.dart';
 
 class FavoriteDoctorDatasourceImpl extends FavoriteDoctorDatasource {
+  final JwtTokenService tokenService;
+
+  FavoriteDoctorDatasourceImpl({JwtTokenService? tokenService})
+    : tokenService = tokenService ?? JwtTokenService();
+
   final Dio dio = Dio(
     BaseOptions(
       baseUrl: 'https://topmedicosperu.com/ms-medical-app/api',
@@ -12,6 +19,12 @@ class FavoriteDoctorDatasourceImpl extends FavoriteDoctorDatasource {
   );
 
   Options _authorizedOptions(String token) {
+    if (tokenService.isExpired(token)) {
+      throw const SessionExpiredException(
+        ApiErrorHandler.sessionExpiredMessage,
+      );
+    }
+
     return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
@@ -56,9 +69,10 @@ class FavoriteDoctorDatasourceImpl extends FavoriteDoctorDatasource {
           }
         }
 
-        final specialtyNames = (doc['specialtyNames'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .toList();
+        final specialtyNames =
+            (doc['specialtyNames'] as List<dynamic>? ?? [])
+                .map((e) => e.toString())
+                .toList();
 
         return FavoriteDoctor(
           id: (doc['id'] as num?)?.toInt() ?? 0,
@@ -74,8 +88,9 @@ class FavoriteDoctorDatasourceImpl extends FavoriteDoctorDatasource {
         );
       }).toList();
     } on DioException catch (e) {
-      throw AuthException(
-        'No se pudo cargar los favoritos: ${e.response?.data?['message'] ?? e.message ?? 'desconocido'}',
+      throw ApiErrorHandler.authExceptionFromDio(
+        e,
+        fallbackMessage: 'No se pudo cargar los favoritos',
       );
     }
   }
@@ -89,16 +104,14 @@ class FavoriteDoctorDatasourceImpl extends FavoriteDoctorDatasource {
     try {
       final response = await dio.post(
         '/doctor-favorites',
-        data: {
-          'doctorId': doctorId,
-          'patientId': patientId,
-        },
+        data: {'doctorId': doctorId, 'patientId': patientId},
         options: _authorizedOptions(token),
       );
       return response.statusCode == 201 || response.data == true;
     } on DioException catch (e) {
-      throw AuthException(
-        'No se pudo agregar a favoritos: ${e.response?.data?['message'] ?? e.message ?? 'desconocido'}',
+      throw ApiErrorHandler.authExceptionFromDio(
+        e,
+        fallbackMessage: 'No se pudo agregar a favoritos',
       );
     }
   }

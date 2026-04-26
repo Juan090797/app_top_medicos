@@ -68,7 +68,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   onTap: () {},
                   child: Row(
                     children: const [
-                      Icon(Icons.calendar_month_outlined, size: 18, color: Color(0xFF355A6B)),
+                      Icon(
+                        Icons.calendar_month_outlined,
+                        size: 18,
+                        color: Color(0xFF355A6B),
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Ver calendario',
@@ -79,7 +83,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                       ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -92,7 +96,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _AppointmentCard(item: items[index]),
+              itemBuilder:
+                  (context, index) => _AppointmentCard(item: items[index]),
             ),
           ),
 
@@ -120,8 +125,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         selectedIndex: 1,
         onDestinationSelected: (i) {
           if (i == 0) context.go('/'); // Home
-          if (i == 1) context.go('/appointments'); // Citas (esta)
-          if (i == 2) context.push('/profile');
+          if (i == 1) return; // Citas (esta)
+          if (i == 2) context.go('/profile');
         },
         destinations: const [
           NavigationDestination(
@@ -252,13 +257,10 @@ class _AppointmentCard extends StatelessWidget {
                 children: [
                   item.avatarUrl.isNotEmpty
                       ? CircleAvatar(
-                          radius: 24,
-                          backgroundImage: NetworkImage(item.avatarUrl),
-                        )
-                      : InitialsAvatar(
-                          fullName: item.doctorName,
-                          radius: 24,
-                        ),
+                        radius: 24,
+                        backgroundImage: NetworkImage(item.avatarUrl),
+                      )
+                      : InitialsAvatar(fullName: item.doctorName, radius: 24),
                   if (item.online)
                     Positioned(
                       right: -1,
@@ -313,7 +315,11 @@ class _AppointmentCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_month_outlined, size: 18, color: Color(0xFF0E2E3F)),
+                const Icon(
+                  Icons.calendar_month_outlined,
+                  size: 18,
+                  color: Color(0xFF0E2E3F),
+                ),
                 const SizedBox(width: 10),
                 Text(
                   item.dateLabel,
@@ -325,7 +331,11 @@ class _AppointmentCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 const Text('•', style: TextStyle(color: Color(0xFF94A3B8))),
                 const SizedBox(width: 10),
-                const Icon(Icons.access_time, size: 18, color: Color(0xFF0E2E3F)),
+                const Icon(
+                  Icons.access_time,
+                  size: 18,
+                  color: Color(0xFF0E2E3F),
+                ),
                 const SizedBox(width: 10),
                 Text(
                   item.timeLabel,
@@ -354,7 +364,11 @@ class _AppointmentCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(width: 6),
-                    Icon(Icons.arrow_forward, size: 18, color: Color(0xFF0E2E3F)),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 18,
+                      color: Color(0xFF0E2E3F),
+                    ),
                   ],
                 ),
               ),
@@ -364,7 +378,7 @@ class _AppointmentCard extends StatelessWidget {
                 icon: const Icon(Icons.more_horiz, color: Color(0xFF94A3B8)),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -389,11 +403,7 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         status,
-        style: TextStyle(
-          fontWeight: FontWeight.w900,
-          color: fg,
-          fontSize: 12,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w900, color: fg, fontSize: 12),
       ),
     );
   }

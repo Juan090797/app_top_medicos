@@ -32,13 +32,13 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body:  _HomeView(),
+      body: _HomeView(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (i) {
           if (i == 0) context.go('/');
-          if (i == 1) context.push('/appointments');
-          if (i == 2) context.push('/profile');
+          if (i == 1) context.go('/appointments');
+          if (i == 2) context.go('/profile');
         },
         destinations: const [
           NavigationDestination(
@@ -67,7 +67,6 @@ class _HomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -99,9 +98,10 @@ class _Header extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
-    final displayName = (user?.username.trim().isNotEmpty ?? false)
-        ? user!.username.trim()
-        : 'Paciente';
+    final displayName =
+        (user?.username.trim().isNotEmpty ?? false)
+            ? user!.username.trim()
+            : 'Paciente';
     final top = MediaQuery.paddingOf(context).top;
 
     final hasImage = _hasValidImage(user?.urlImagenUser);
@@ -112,10 +112,7 @@ class _Header extends ConsumerWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0E2E3F),
-            Color(0xFF153F56),
-          ],
+          colors: [Color(0xFF0E2E3F), Color(0xFF153F56)],
         ),
       ),
       child: Column(
@@ -124,17 +121,14 @@ class _Header extends ConsumerWidget {
             children: [
               hasImage
                   ? CircleAvatar(
-                      radius: 26,
-                      backgroundColor: const Color(0xFF9DC4FF),
-                      child: CircleAvatar(
-                        radius: 24,
-                        backgroundImage: NetworkImage(user!.urlImagenUser),
-                      ),
-                    )
-                  : InitialsAvatar(
-                      fullName: displayName,
-                      radius: 26,
+                    radius: 26,
+                    backgroundColor: const Color(0xFF9DC4FF),
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundImage: NetworkImage(user!.urlImagenUser),
                     ),
+                  )
+                  : InitialsAvatar(fullName: displayName, radius: 26),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -200,28 +194,32 @@ class _SearchBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => context.push('/search'),
         borderRadius: BorderRadius.circular(14),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: const Row(
-        children: [
-          Icon(Icons.search, color: Color(0xFF93A0A8)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Buscar especialidad, doctor, ...',
-              style: TextStyle(
-                color: Color(0xFF93A0A8),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+        child: Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: const Row(
+            children: [
+              Icon(Icons.search, color: Color(0xFF93A0A8)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Buscar especialidad, doctor, ...',
+                  style: TextStyle(
+                    color: Color(0xFF93A0A8),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -300,7 +298,7 @@ class _BannerCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         ),
@@ -346,11 +344,7 @@ class _SectionEspecialidades extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader(
-            title: 'Especialidades',
-            actionText: '',
-            onTap: () {},
-          ),
+          _SectionHeader(title: 'Especialidades', actionText: '', onTap: () {}),
           const SizedBox(height: 12),
 
           specialtiesAsync.when(
@@ -365,16 +359,16 @@ class _SectionEspecialidades extends ConsumerWidget {
                   scrollDirection: Axis.horizontal,
                   itemCount: specialties.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (_, i) => _SpecialtyItem(
-                    label: specialties[i].name,
-                  ),
+                  itemBuilder:
+                      (_, i) => _SpecialtyItem(label: specialties[i].name),
                 ),
               );
             },
-            loading: () => const SizedBox(
-              height: 92,
-              child: Center(child: CircularProgressIndicator()),
-            ),
+            loading:
+                () => const SizedBox(
+                  height: 92,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
             error: (e, _) => Text('Error cargando especialidades: $e'),
           ),
         ],
@@ -404,9 +398,7 @@ class _SpecialtyItem extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            label.length > 9
-              ? '${label.substring(0, 7)}..'
-              : label,
+            label.length > 9 ? '${label.substring(0, 7)}..' : label,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 13,
@@ -449,10 +441,12 @@ class _SectionTopMedicos extends ConsumerWidget {
           else
             Column(
               children: [
-                ...state.doctors.map((doctor) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _DoctorCard(doctor: doctor),
-                    )),
+                ...state.doctors.map(
+                  (doctor) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _DoctorCard(doctor: doctor),
+                  ),
+                ),
 
                 // loader al final cuando está cargando más páginas
                 if (state.isLoading)
@@ -480,81 +474,84 @@ class _DoctorCard extends StatelessWidget {
         context.push('/doctor-detail/${Uri.encodeComponent(doctor.fullName)}');
       },
       child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundImage: doctor.urlImagen.isNotEmpty
-                    ? NetworkImage(doctor.urlImagen)
-                    : null,
-                backgroundColor: doctor.urlImagen.isEmpty
-                    ? InitialsAvatar.getColor(doctor.fullName)
-                    : null,
-                child: doctor.urlImagen.isEmpty
-                    ? Text(
-                        InitialsAvatar.getInitials(doctor.fullName),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 19,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      doctor.fullName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      doctor.specialtyNames.join(', '),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF0E2E3F),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      doctor.email,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF7A8A95),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundImage:
+                      doctor.urlImagen.isNotEmpty
+                          ? NetworkImage(doctor.urlImagen)
+                          : null,
+                  backgroundColor:
+                      doctor.urlImagen.isEmpty
+                          ? InitialsAvatar.getColor(doctor.fullName)
+                          : null,
+                  child:
+                      doctor.urlImagen.isEmpty
+                          ? Text(
+                            InitialsAvatar.getInitials(doctor.fullName),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 19,
+                            ),
+                          )
+                          : null,
                 ),
-              ),
-              _RatingPill(rating: doctor.rating.toString()),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // botones igual...
-        ],
-      ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doctor.fullName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        doctor.specialtyNames.join(', '),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0E2E3F),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        doctor.email,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF7A8A95),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _RatingPill(rating: doctor.rating.toString()),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // botones igual...
+          ],
+        ),
       ),
     );
   }
@@ -634,10 +631,7 @@ class _GoRoundIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _GoRoundIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _GoRoundIconButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

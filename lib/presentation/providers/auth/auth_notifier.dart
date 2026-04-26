@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_top_medicos/domain/entities/auth_cache.dart';
 import 'package:app_top_medicos/domain/repositories/auth_repository.dart';
+import 'package:app_top_medicos/infrastructure/auth/jwt_token_service.dart';
+import 'package:app_top_medicos/infrastructure/http/api_error_handler.dart';
 import 'auth_state.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository repository;
+  final JwtTokenService tokenService;
 
-  AuthNotifier(this.repository) : super(const AuthState()) {
+  AuthNotifier({required this.repository, required this.tokenService})
+    : super(const AuthState()) {
     _restoreSession();
   }
 
@@ -23,18 +27,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return;
     }
 
-    state = state.copyWith(
-      isCheckingSession: false,
-      token: authCache.session.token,
-      user: authCache.user,
-      errorMessage: null,
-    );
+    try {
+      if (tokenService.isExpired(authCache.session.token)) {
+        await expireSession(showMessage: false);
+        return;
+      }
+
+      state = state.copyWith(
+        isCheckingSession: false,
+        token: authCache.session.token,
+        user: authCache.user,
+        errorMessage: null,
+      );
+    } catch (_) {
+      await expireSession(showMessage: false);
+    }
   }
 
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     if (state.isLoading) return;
 
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -46,12 +56,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         token: session.token,
       );
 
-      await repository.persistSession(
-        AuthCache(
-          session: session,
-          user: user,
-        ),
-      );
+      await repository.persistSession(AuthCache(session: session, user: user));
 
       state = state.copyWith(
         isLoading: false,
@@ -73,5 +78,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     await repository.clearSession();
     state = const AuthState(isCheckingSession: false);
+  }
+
+  Future<void> expireSession({bool showMessage = true}) async {
+    await repository.clearSession();
+    state = AuthState(
+      isCheckingSession: false,
+      errorMessage: showMessage ? ApiErrorHandler.sessionExpiredMessage : null,
+    );
   }
 }

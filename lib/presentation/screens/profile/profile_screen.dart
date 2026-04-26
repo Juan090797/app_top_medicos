@@ -35,14 +35,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.listen(patientProfileProvider, (previous, next) {
       if (!mounted) return;
 
-      if (next.errorMessage != null && next.errorMessage != previous?.errorMessage) {
+      if (next.errorMessage != null &&
+          next.errorMessage != previous?.errorMessage) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(SnackBar(content: Text(next.errorMessage!)));
         ref.read(patientProfileProvider.notifier).clearMessages();
       }
 
-      if (next.successMessage != null && next.successMessage != previous?.successMessage) {
+      if (next.successMessage != null &&
+          next.successMessage != previous?.successMessage) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(SnackBar(content: Text(next.successMessage!)));
@@ -77,189 +79,222 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: profileState.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : profile == null
+        child:
+            profileState.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : profile == null
                 ? const Center(child: Text('No se pudo cargar el perfil.'))
                 : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          _ProfileAvatar(
-                            urlImagenUser: authState.user?.urlImagenUser,
-                            fullName: profile.fullName,
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        _ProfileAvatar(
+                          urlImagenUser: authState.user?.urlImagenUser,
+                          fullName: profile.fullName,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          profile.fullName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0E2E3F),
                           ),
-                          const SizedBox(height: 14),
-                          Text(
-                            profile.fullName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0E2E3F),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const _Label('Nombres y Apellidos'),
-                          const SizedBox(height: 8),
-                          _ReadOnlyField(value: profile.fullName),
-                          const SizedBox(height: 16),
-                          const _Label('Correo Electrónico'),
-                          const SizedBox(height: 8),
-                          _ReadOnlyField(value: profile.email),
-                          const SizedBox(height: 16),
-                          const _Label('Celular'),
-                          const SizedBox(height: 8),
-                          _EditableInput(
-                            controller: phoneController,
-                            hint: 'Ingrese su celular',
-                            keyboardType: TextInputType.phone,
-                            validator: (value) {
-                              final phone = (value ?? '').trim();
-                              if (phone.isEmpty) return 'Ingrese su celular';
-                              if (phone.length < 6) return 'Celular inválido';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          const _Label('Género'),
-                          const SizedBox(height: 8),
-                          _GenderDropdown(
-                            genders: genders,
-                            value: selectedGender,
-                            onChanged: (value) {
-                              setState(() => selectedGender = value);
-                            },
-                          ),
-                          const SizedBox(height: 22),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: profileState.isSaving
-                                  ? null
-                                  : () async {
-                                      if (!_formKey.currentState!.validate()) return;
-                                      final gender = selectedGender?.trim().toUpperCase() ?? '';
+                        ),
+                        const SizedBox(height: 20),
+                        const _Label('Nombres y Apellidos'),
+                        const SizedBox(height: 8),
+                        _ReadOnlyField(value: profile.fullName),
+                        const SizedBox(height: 16),
+                        const _Label('Correo Electrónico'),
+                        const SizedBox(height: 8),
+                        _ReadOnlyField(value: profile.email),
+                        const SizedBox(height: 16),
+                        const _Label('Celular'),
+                        const SizedBox(height: 8),
+                        _EditableInput(
+                          controller: phoneController,
+                          hint: 'Ingrese su celular',
+                          keyboardType: TextInputType.phone,
+                          validator: (value) {
+                            final phone = (value ?? '').trim();
+                            if (phone.isEmpty) return 'Ingrese su celular';
+                            if (phone.length < 6) return 'Celular inválido';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const _Label('Género'),
+                        const SizedBox(height: 8),
+                        _GenderDropdown(
+                          genders: genders,
+                          value: selectedGender,
+                          onChanged: (value) {
+                            setState(() => selectedGender = value);
+                          },
+                        ),
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed:
+                                profileState.isSaving
+                                    ? null
+                                    : () async {
+                                      if (!_formKey.currentState!.validate()) {
+                                        return;
+                                      }
+                                      final gender =
+                                          selectedGender
+                                              ?.trim()
+                                              .toUpperCase() ??
+                                          '';
                                       if (gender != 'M' && gender != 'F') {
                                         ScaffoldMessenger.of(context)
                                           ..clearSnackBars()
                                           ..showSnackBar(
-                                            const SnackBar(content: Text('Seleccione un género válido')),
+                                            const SnackBar(
+                                              content: Text(
+                                                'Seleccione un género válido',
+                                              ),
+                                            ),
                                           );
                                         return;
                                       }
 
-                                      await ref.read(patientProfileProvider.notifier).updateEditableFields(
-                                            phoneNumber: phoneController.text.trim(),
+                                      await ref
+                                          .read(patientProfileProvider.notifier)
+                                          .updateEditableFields(
+                                            phoneNumber:
+                                                phoneController.text.trim(),
                                             gender: gender,
                                           );
                                     },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0E2E3F),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0E2E3F),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
                               ),
-                              child: profileState.isSaving
-                                  ? const SizedBox(
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            child:
+                                profileState.isSaving
+                                    ? const SizedBox(
                                       width: 22,
                                       height: 22,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
-                                  : const Text('Guardar Cambios'),
-                            ),
+                                    : const Text('Guardar Cambios'),
                           ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: OutlinedButton(
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => const ChangePasswordDialog(),
-                                );
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF0E2E3F),
-                                side: const BorderSide(color: Color(0xFF0E2E3F), width: 2),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder:
+                                    (context) => const ChangePasswordDialog(),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0E2E3F),
+                              side: const BorderSide(
+                                color: Color(0xFF0E2E3F),
+                                width: 2,
                               ),
-                              child: const Text('Cambiar Contraseña'),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: OutlinedButton.icon(
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Cerrar Sesión'),
-                                    content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, false),
-                                        child: const Text('Cancelar'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                        child: const Text('Cerrar Sesión',
-                                            style: TextStyle(color: Colors.red)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirm == true) {
-                                  await ref.read(authProvider.notifier).logout();
-                                  if (context.mounted) context.go('/login');
-                                }
-                              },
-                              icon: const Icon(Icons.logout, color: Colors.red),
-                              label: const Text('Cerrar Sesión'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red, width: 2),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
+                            child: const Text('Cambiar Contraseña'),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder:
+                                    (ctx) => AlertDialog(
+                                      title: const Text('Cerrar Sesión'),
+                                      content: const Text(
+                                        '¿Estás seguro de que deseas cerrar sesión?',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed:
+                                              () => Navigator.pop(ctx, false),
+                                          child: const Text('Cancelar'),
+                                        ),
+                                        TextButton(
+                                          onPressed:
+                                              () => Navigator.pop(ctx, true),
+                                          child: const Text(
+                                            'Cerrar Sesión',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                              );
+                              if (confirm == true) {
+                                await ref.read(authProvider.notifier).logout();
+                                if (context.mounted) context.go('/login');
+                              }
+                            },
+                            icon: const Icon(Icons.logout, color: Colors.red),
+                            label: const Text('Cerrar Sesión'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: 2,
         onDestinationSelected: (i) {
           if (i == 0) context.go('/');
-          if (i == 1) context.push('/appointments');
-          if (i == 2) context.push('/profile');
+          if (i == 1) context.go('/appointments');
+          if (i == 2) return;
         },
         destinations: const [
           NavigationDestination(
@@ -292,7 +327,8 @@ class _ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = (urlImagenUser ?? '').trim();
-    final hasValidImage = imageUrl.isNotEmpty &&
+    final hasValidImage =
+        imageUrl.isNotEmpty &&
         !imageUrl.endsWith('/null') &&
         !imageUrl.contains('/static/null');
 
@@ -305,10 +341,7 @@ class _ProfileAvatar extends StatelessWidget {
           color: Color(0xFFFFE1D6),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Image(
-          image: NetworkImage(imageUrl),
-          fit: BoxFit.cover,
-        ),
+        child: Image(image: NetworkImage(imageUrl), fit: BoxFit.cover),
       );
     }
 
@@ -385,7 +418,10 @@ class _EditableInput extends StatelessWidget {
       validator: validator,
       decoration: InputDecoration(
         hintText: hint,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -421,14 +457,15 @@ class _GenderDropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       value: (value == 'M' || value == 'F') ? value : null,
       onChanged: onChanged,
-      items: genders
-          .map(
-            (gender) => DropdownMenuItem<String>(
-              value: gender.shortDescription,
-              child: Text(gender.description),
-            ),
-          )
-          .toList(),
+      items:
+          genders
+              .map(
+                (gender) => DropdownMenuItem<String>(
+                  value: gender.shortDescription,
+                  child: Text(gender.description),
+                ),
+              )
+              .toList(),
       decoration: InputDecoration(
         hintText: 'Seleccione género',
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

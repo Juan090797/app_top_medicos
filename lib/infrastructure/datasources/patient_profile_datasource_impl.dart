@@ -1,10 +1,17 @@
+import 'package:app_top_medicos/infrastructure/auth/jwt_token_service.dart';
 import 'package:app_top_medicos/domain/datasources/patient_profile_datasource.dart';
 import 'package:app_top_medicos/domain/entities/gender_option.dart';
 import 'package:app_top_medicos/domain/entities/patient_profile.dart';
 import 'package:app_top_medicos/infrastructure/errors/auth_errors.dart';
+import 'package:app_top_medicos/infrastructure/http/api_error_handler.dart';
 import 'package:dio/dio.dart';
 
 class PatientProfileDatasourceImpl extends PatientProfileDatasource {
+  final JwtTokenService tokenService;
+
+  PatientProfileDatasourceImpl({JwtTokenService? tokenService})
+    : tokenService = tokenService ?? JwtTokenService();
+
   final Dio dio = Dio(
     BaseOptions(
       baseUrl: 'https://topmedicosperu.com/ms-medical-app/api',
@@ -13,6 +20,12 @@ class PatientProfileDatasourceImpl extends PatientProfileDatasource {
   );
 
   Options _authorizedOptions(String token) {
+    if (tokenService.isExpired(token)) {
+      throw const SessionExpiredException(
+        ApiErrorHandler.sessionExpiredMessage,
+      );
+    }
+
     return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
@@ -42,8 +55,9 @@ class PatientProfileDatasourceImpl extends PatientProfileDatasource {
       final json = response.data as Map<String, dynamic>;
       return _toPatientProfile(json);
     } on DioException catch (e) {
-      throw AuthException(
-        'No se pudo cargar el perfil: ${e.response?.data?['message'] ?? e.message ?? 'desconocido'}',
+      throw ApiErrorHandler.authExceptionFromDio(
+        e,
+        fallbackMessage: 'No se pudo cargar el perfil',
       );
     }
   }
@@ -61,12 +75,14 @@ class PatientProfileDatasourceImpl extends PatientProfileDatasource {
         final json = item as Map<String, dynamic>;
         return GenderOption(
           description: (json['description'] ?? '').toString(),
-          shortDescription: (json['shortDescription'] ?? '').toString().toUpperCase(),
+          shortDescription:
+              (json['shortDescription'] ?? '').toString().toUpperCase(),
         );
       }).toList();
     } on DioException catch (e) {
-      throw AuthException(
-        'No se pudo cargar géneros: ${e.response?.data?['message'] ?? e.message ?? 'desconocido'}',
+      throw ApiErrorHandler.authExceptionFromDio(
+        e,
+        fallbackMessage: 'No se pudo cargar géneros',
       );
     }
   }
@@ -92,8 +108,9 @@ class PatientProfileDatasourceImpl extends PatientProfileDatasource {
       final json = response.data as Map<String, dynamic>;
       return _toPatientProfile(json);
     } on DioException catch (e) {
-      throw AuthException(
-        'No se pudo actualizar el perfil: ${e.response?.data?['message'] ?? e.message ?? 'desconocido'}',
+      throw ApiErrorHandler.authExceptionFromDio(
+        e,
+        fallbackMessage: 'No se pudo actualizar el perfil',
       );
     }
   }
@@ -118,8 +135,10 @@ class PatientProfileDatasourceImpl extends PatientProfileDatasource {
         options: _authorizedOptions(token),
       );
     } on DioException catch (e) {
-      final errorMessage = e.response?.data?['message'] ?? e.message ?? 'Error desconocido';
-      throw AuthException('No se pudo cambiar la contraseña: $errorMessage');
+      throw ApiErrorHandler.authExceptionFromDio(
+        e,
+        fallbackMessage: 'No se pudo cambiar la contraseña',
+      );
     }
   }
 }

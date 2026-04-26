@@ -1,7 +1,11 @@
+import 'package:app_top_medicos/domain/entities/work_schedule.dart';
 import 'package:app_top_medicos/infrastructure/datasources/favorite_doctor_datasource_impl.dart';
 import 'package:app_top_medicos/infrastructure/datasources/patient_profile_datasource_impl.dart';
+import 'package:app_top_medicos/infrastructure/errors/auth_errors.dart';
 import 'package:app_top_medicos/infrastructure/repositories/favorite_doctor_repository_impl.dart';
 import 'package:app_top_medicos/presentation/providers/auth/auth_provider.dart';
+import 'package:app_top_medicos/presentation/providers/auth/jwt_token_service_provider.dart';
+import 'package:app_top_medicos/presentation/screens/booking/appointment_booking_screen.dart';
 import 'package:app_top_medicos/presentation/widgets/layout/app_shell.dart';
 import 'package:app_top_medicos/presentation/widgets/shared/initials_avatar.dart';
 import 'package:app_top_medicos/shared/utils/schedule_utils.dart';
@@ -28,8 +32,6 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
   bool aboutExpanded = false;
   bool _isFaving = false;
 
-  final double referencePrice = 80.00;
-
   Future<void> _addToFavorites(int doctorId) async {
     final authState = ref.read(authProvider);
     final token = authState.token;
@@ -39,7 +41,11 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
-          ..showSnackBar(const SnackBar(content: Text('No se pudo obtener la información del paciente')));
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo obtener la información del paciente'),
+            ),
+          );
       }
       return;
     }
@@ -47,17 +53,32 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
     setState(() => _isFaving = true);
 
     try {
-      final profileDs = PatientProfileDatasourceImpl();
+      final tokenService = ref.read(jwtTokenServiceProvider);
+      final profileDs = PatientProfileDatasourceImpl(
+        tokenService: tokenService,
+      );
       final patient = await profileDs.getByEmail(email: email, token: token);
 
-      final repo = FavoriteDoctorRepositoryImpl(FavoriteDoctorDatasourceImpl());
-      await repo.addFavorite(doctorId: doctorId, patientId: patient.id, token: token);
+      final repo = FavoriteDoctorRepositoryImpl(
+        FavoriteDoctorDatasourceImpl(tokenService: tokenService),
+      );
+      await repo.addFavorite(
+        doctorId: doctorId,
+        patientId: patient.id,
+        token: token,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
-          ..showSnackBar(const SnackBar(content: Text('Doctor agregado a favoritos')));
+          ..showSnackBar(
+            const SnackBar(content: Text('Doctor agregado a favoritos')),
+          );
       }
     } catch (e) {
+      if (e is SessionExpiredException) {
+        await ref.read(authProvider.notifier).expireSession();
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
@@ -83,19 +104,29 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
       },
       actions: [
         async.whenOrNull(
-              data: (bundle) => IconButton(
-                onPressed: _isFaving ? null : () => _addToFavorites(bundle.doctor.id),
-                icon: _isFaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Icon(Icons.favorite_border, color: Colors.white),
-              ),
+              data:
+                  (bundle) => IconButton(
+                    onPressed:
+                        _isFaving
+                            ? null
+                            : () => _addToFavorites(bundle.doctor.id),
+                    icon:
+                        _isFaving
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                            : const Icon(
+                              Icons.favorite_border,
+                              color: Colors.white,
+                            ),
+                  ),
             ) ??
             const SizedBox.shrink(),
       ],
@@ -104,12 +135,13 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (bundle) {
           final modeSet = bundle.modes.map((m) => m.description).toSet();
-          final effectiveMode = modeSet.contains(selectedMode)
-              ? selectedMode
-              : (modeSet.isNotEmpty ? modeSet.first : 'P');
+          final effectiveMode =
+              modeSet.contains(selectedMode)
+                  ? selectedMode
+                  : (modeSet.isNotEmpty ? modeSet.first : 'P');
 
           // Días hoy → +30,
-          final days = nextDays(31);//.where((d) => d.weekday <= 5).toList();
+          final days = nextDays(31); //.where((d) => d.weekday <= 5).toList();
 
           final slots = buildAvailableSlotsForDate(
             date: selectedDate,
@@ -119,12 +151,20 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
           );
 
           final morning = slots.where((s) => toMinutes(s) < 12 * 60).toList();
-          final afternoon = slots.where((s) => toMinutes(s) >= 12 * 60).toList();
+          final afternoon =
+              slots.where((s) => toMinutes(s) >= 12 * 60).toList();
+          final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+          final reserveButtonBottom = bottomSafeArea + 18;
 
           return Stack(
             children: [
               SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 140), // 👈 deja espacio para botón inferior
+                padding: EdgeInsets.fromLTRB(
+                  18,
+                  14,
+                  18,
+                  140 + bottomSafeArea,
+                ), // 👈 deja espacio para botón inferior
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -134,18 +174,23 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                         children: [
                           bundle.doctor.urlImage.isNotEmpty
                               ? CircleAvatar(
-                                  radius: 52,
-                                  backgroundImage: NetworkImage(bundle.doctor.urlImage),
-                                )
-                              : InitialsAvatar(
-                                  fullName: bundle.doctor.fullName,
-                                  radius: 52,
+                                radius: 52,
+                                backgroundImage: NetworkImage(
+                                  bundle.doctor.urlImage,
                                 ),
+                              )
+                              : InitialsAvatar(
+                                fullName: bundle.doctor.fullName,
+                                radius: 52,
+                              ),
                           const SizedBox(height: 12),
                           Text(
                             bundle.doctor.fullName,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Wrap(
@@ -155,7 +200,10 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                             children: [
                               if (bundle.doctor.specialties.isNotEmpty)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFE6F0FF),
                                     borderRadius: BorderRadius.circular(999),
@@ -170,7 +218,10 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                                 ),
                               Text(
                                 'CMP ${bundle.doctor.cmp}',
-                                style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  color: Colors.black45,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
@@ -218,35 +269,50 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                     const SizedBox(height: 18),
 
                     // ===== ABOUT =====
-                    const Text('Sobre el Doctor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                    const Text(
+                      'Sobre el Doctor',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     _AboutText(
                       text: bundle.doctor.aboutMe,
                       expanded: aboutExpanded,
-                      onToggle: () => setState(() => aboutExpanded = !aboutExpanded),
+                      onToggle:
+                          () => setState(() => aboutExpanded = !aboutExpanded),
                     ),
 
                     const SizedBox(height: 18),
 
                     // ===== MODOS DE ATENCIÓN (opcional) =====
                     if (modeSet.isNotEmpty) ...[
-                      const Text('Tipo de atención', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                      const Text(
+                        'Tipo de atención',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 10,
-                        children: modeSet.map((m) {
-                          final selected = m == effectiveMode;
-                          return ChoiceChip(
-                            label: Text(m == 'P' ? 'Presencial' : 'Online'),
-                            selected: selected,
-                            onSelected: (_) {
-                              setState(() {
-                                selectedMode = m;
-                                selectedTime = null; // 👈 si cambia el modo, reinicia hora
-                              });
-                            },
-                          );
-                        }).toList(),
+                        children:
+                            modeSet.map((m) {
+                              final selected = m == effectiveMode;
+                              return ChoiceChip(
+                                label: Text(m == 'P' ? 'Presencial' : 'Online'),
+                                selected: selected,
+                                onSelected: (_) {
+                                  setState(() {
+                                    selectedMode = m;
+                                    selectedTime =
+                                        null; // 👈 si cambia el modo, reinicia hora
+                                  });
+                                },
+                              );
+                            }).toList(),
                       ),
                       const SizedBox(height: 18),
                     ],
@@ -255,9 +321,18 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                     Row(
                       children: [
                         const Expanded(
-                          child: Text('Horarios Disponibles', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                          child: Text(
+                            'Horarios Disponibles',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
-                        Text(monthYear(selectedDate), style: const TextStyle(color: Colors.black54)),
+                        Text(
+                          monthYear(selectedDate),
+                          style: const TextStyle(color: Colors.black54),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -275,26 +350,34 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
 
                           return InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            onTap: () => setState(() {
-                              selectedDate = d;
-                              selectedTime = null; // 👈 cambia día, reinicia hora
-                            }),
+                            onTap:
+                                () => setState(() {
+                                  selectedDate = d;
+                                  selectedTime =
+                                      null; // 👈 cambia día, reinicia hora
+                                }),
                             child: Container(
                               width: 64,
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
-                                color: selected ? const Color(0xFF0E2E3F) : Colors.white,
+                                color:
+                                    selected
+                                        ? const Color(0xFF0E2E3F)
+                                        : Colors.white,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: Colors.black12),
-                                boxShadow: selected
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.10),
-                                          blurRadius: 14,
-                                          offset: const Offset(0, 8),
-                                        )
-                                      ]
-                                    : null,
+                                boxShadow:
+                                    selected
+                                        ? [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.10,
+                                            ),
+                                            blurRadius: 14,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ]
+                                        : null,
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -302,7 +385,10 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                                   Text(
                                     weekdayShort(d),
                                     style: TextStyle(
-                                      color: selected ? Colors.white70 : Colors.black54,
+                                      color:
+                                          selected
+                                              ? Colors.white70
+                                              : Colors.black54,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -310,7 +396,10 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                                   Text(
                                     '${d.day}',
                                     style: TextStyle(
-                                      color: selected ? Colors.white : Colors.black,
+                                      color:
+                                          selected
+                                              ? Colors.white
+                                              : Colors.black,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -327,42 +416,58 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
 
                     // ===== HORAS =====
                     if (slots.isEmpty)
-                      const Text('No hay horarios disponibles para este día.',
-                          style: TextStyle(color: Colors.black54))
+                      const Text(
+                        'No hay horarios disponibles para este día.',
+                        style: TextStyle(color: Colors.black54),
+                      )
                     else ...[
                       if (morning.isNotEmpty) ...[
-                        const Text('Mañana', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                        const Text(
+                          'Mañana',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 10,
                           runSpacing: 10,
-                          children: morning.map((t) {
-                            final isSelected = selectedTime == t;
-                            return _TimeChip(
-                              time: t,
-                              selected: isSelected,
-                              enabled: true,
-                              onTap: () => setState(() => selectedTime = t),
-                            );
-                          }).toList(),
+                          children:
+                              morning.map((t) {
+                                final isSelected = selectedTime == t;
+                                return _TimeChip(
+                                  time: t,
+                                  selected: isSelected,
+                                  enabled: true,
+                                  onTap: () => setState(() => selectedTime = t),
+                                );
+                              }).toList(),
                         ),
                         const SizedBox(height: 18),
                       ],
                       if (afternoon.isNotEmpty) ...[
-                        const Text('Tarde', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                        const Text(
+                          'Tarde',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 10,
                           runSpacing: 10,
-                          children: afternoon.map((t) {
-                            final isSelected = selectedTime == t;
-                            return _TimeChip(
-                              time: t,
-                              selected: isSelected,
-                              enabled: true,
-                              onTap: () => setState(() => selectedTime = t),
-                            );
-                          }).toList(),
+                          children:
+                              afternoon.map((t) {
+                                final isSelected = selectedTime == t;
+                                return _TimeChip(
+                                  time: t,
+                                  selected: isSelected,
+                                  enabled: true,
+                                  onTap: () => setState(() => selectedTime = t),
+                                );
+                              }).toList(),
                         ),
                       ],
                     ],
@@ -375,15 +480,23 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
                 Positioned(
                   left: 18,
                   right: 18,
-                  bottom: 18, // quedará encima del bottom nav
+                  bottom: reserveButtonBottom, // respeta navegación Android
                   child: _ReserveButton(
-                    price: referencePrice,
                     onTap: () {
-                      // aquí luego navegas a confirmar cita
-                      // por ahora solo prueba:
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Reservar: ${selectedDate.toIso8601String().split("T").first} $selectedTime ($effectiveMode)'),
+                      context.push(
+                        '/appointment-booking',
+                        extra: AppointmentBookingArgs(
+                          doctorId: bundle.doctor.id,
+                          doctorName: bundle.doctor.fullName,
+                          date: selectedDate,
+                          startTime: selectedTime!,
+                          durationMinutes: _durationForSelection(
+                            date: selectedDate,
+                            schedules: bundle.schedules,
+                            mode: effectiveMode,
+                            time: selectedTime!,
+                          ),
+                          modeAttention: effectiveMode,
                         ),
                       );
                     },
@@ -394,6 +507,37 @@ class _DoctorDetailScreenState extends ConsumerState<DoctorDetailScreen> {
         },
       ),
     );
+  }
+
+  int _durationForSelection({
+    required DateTime date,
+    required List<WorkSchedule> schedules,
+    required String mode,
+    required String time,
+  }) {
+    final dayOfWeek = apiDay(date);
+    final selectedMinutes = toMinutes(time);
+
+    final matchingSchedules =
+        schedules.where((schedule) {
+          if (schedule.status != '1' ||
+              schedule.day != dayOfWeek ||
+              schedule.modeAttention != mode) {
+            return false;
+          }
+
+          final start = toMinutes(schedule.startTime);
+          final end = toMinutes(schedule.endTime);
+          return selectedMinutes >= start &&
+              selectedMinutes + schedule.duration <= end;
+        }).toList();
+
+    if (matchingSchedules.isEmpty) return 30;
+
+    matchingSchedules.sort(
+      (a, b) => toMinutes(a.startTime).compareTo(toMinutes(b.startTime)),
+    );
+    return matchingSchedules.first.duration;
   }
 }
 
@@ -433,7 +577,10 @@ class _MetricCard extends StatelessWidget {
             child: Icon(icon, size: 20, color: iconColor),
           ),
           const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(color: Colors.black54)),
         ],
@@ -539,15 +686,16 @@ class _TimeChip extends StatelessWidget {
             color: bg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.black12),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 14,
-                      offset: const Offset(0, 8),
-                    )
-                  ]
-                : null,
+            boxShadow:
+                selected
+                    ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 14,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                    : null,
           ),
           child: Text(
             time,
@@ -560,13 +708,9 @@ class _TimeChip extends StatelessWidget {
 }
 
 class _ReserveButton extends StatelessWidget {
-  final double price;
   final VoidCallback onTap;
 
-  const _ReserveButton({
-    required this.price,
-    required this.onTap,
-  });
+  const _ReserveButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -579,36 +723,16 @@ class _ReserveButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Reservar Cita',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+          child: const Center(
+            child: Text(
+              'Reservar Cita',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'S/ ${price.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -26,10 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
       if ((prev?.errorMessage != next.errorMessage) &&
           next.errorMessage != null) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(next.errorMessage!)));
+        _showAuthError(next.errorMessage!);
       }
 
       final wasAuth = prev?.isAuthenticated ?? false;
@@ -37,6 +34,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!wasAuth && isAuth) {
         context.go('/');
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final errorMessage = ref.read(authProvider).errorMessage;
+      if (errorMessage != null) {
+        _showAuthError(errorMessage);
       }
     });
   }
@@ -107,7 +112,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         validator: (v) {
                           final value = v?.trim() ?? '';
                           if (value.isEmpty) return 'Ingrese su correo';
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return 'Correo inválido';
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                            return 'Correo inválido';
+                          }
                           return null;
                         },
                       ),
@@ -123,7 +130,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   : Icons.visibility_outlined,
                               color: const Color(0xFF355A6B),
                             ),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            onPressed:
+                                () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
                           ),
                         ),
                         validator: (v) {
@@ -185,7 +195,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 const SizedBox(height: 18),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () => context.push('/forgot-password'),
                   child: const Text(
                     '¿Olvidaste tu contraseña?',
                     style: TextStyle(
@@ -208,7 +218,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () {},
+                      onTap: () => context.push('/register'),
                       child: const Text(
                         'Registrate',
                         style: TextStyle(
@@ -227,6 +237,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
+  }
+
+  void _showAuthError(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   InputDecoration _inputDecoration(String hint) {
